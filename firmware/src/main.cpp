@@ -126,7 +126,6 @@ void loop() {
 			continue;
 		}
 		if (cmd_lenght == 0) {
-			Serial.println("error: no command recieved");
 			continue;
 		}
 
@@ -144,12 +143,14 @@ void loop() {
 		// get stepper id
 		if (strcmp(cmdparts[0], "sid") != 0) {
 			Serial.println("error: no sid found");
+			printUsage();
 			continue;
 		}
 
 		// get command
 		if (strcmp(cmdparts[2], "cmd") != 0) {
 			Serial.println("error: no cmd found");
+			printUsage();
 			continue;
 		}
 
@@ -224,7 +225,6 @@ void loop() {
 			Serial.println("' is an unkown variable");
 			continue;
 		}
-		printUsage();
 	}
 }
 
