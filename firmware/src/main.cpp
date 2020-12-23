@@ -3,7 +3,6 @@
 // TODO
 //
 // write docu for why one tick equals 4 microseconds
-// play/pause function for travel mode
 // wrap the Serial.print function
 // communication via bluetooth
 // add support for multiple steppers
@@ -20,13 +19,16 @@
 
 #define	CLOCKWISE		0
 #define	COUNTERCLOCKWISE	1
+#define STARTPOINT		0
+#define ENDPOINT		1
 #define MODE_RUN		0
 #define MODE_STOP		1
 #define MODE_TRAVEL		2
 
-byte y_mode = MODE_RUN;
-unsigned int y_step_current = 0;
-unsigned int y_step_max = 0;
+byte y_mode = MODE_STOP;
+long y_startpoint_distance = 0;
+long y_endpoint = 0;
+bool y_travel_destination = STARTPOINT;
 
 // counter and compare values
 // XXX do we need those?
@@ -43,7 +45,7 @@ void setSpeed(unsigned int microseconds) {
 void printUsage() {
 	Serial.println("Please structure your command like this:");
 	Serial.println();
-	Serial.println("sid=<0-2>;cmd=<set|get>;[speed,direction,mode]");
+	Serial.println("sid=<0-2>;cmd=<set|get>;[speed,direction,startpoint,endpoint,mode]");
 	Serial.println();
 	Serial.println();
 	Serial.println("Where:");
@@ -144,8 +146,6 @@ void loop() {
 			Serial.println("error: no sid found");
 			continue;
 		}
-		Serial.print("stepper id: ");
-		Serial.println(cmdparts[1]);
 
 		// get command
 		if (strcmp(cmdparts[2], "cmd") != 0) {
@@ -161,6 +161,14 @@ void loop() {
 			}
 			if (strcmp(cmdparts[4], "direction") == 0) {
 				Serial.println(digitalRead(Y_DIR));
+				continue;
+			}
+			if (strcmp(cmdparts[4], "startpoint") == 0) {
+				Serial.println(y_startpoint_distance);
+				continue;
+			}
+			if (strcmp(cmdparts[4], "endpoint") == 0) {
+				Serial.println(y_endpoint);
 				continue;
 			}
 			if (strcmp(cmdparts[4], "mode") == 0) {
@@ -185,18 +193,28 @@ void loop() {
 				digitalWrite(Y_DIR, atoi(cmdparts[5]));
 				continue;
 			}
+			if (strcmp(cmdparts[4], "direction") == 0) {
+				// XXX validate value
+				digitalWrite(Y_DIR, atoi(cmdparts[5]));
+				continue;
+			}
+			if (strcmp(cmdparts[4], "startpoint") == 0) {
+				y_startpoint_distance = 0;
+				y_mode = MODE_STOP;
+				continue;
+			}
+			if (strcmp(cmdparts[4], "endpoint") == 0) {
+				y_endpoint = y_startpoint_distance;
+				y_mode = MODE_STOP;
+				continue;
+			}
 			if (strcmp(cmdparts[4], "mode") == 0) {
 				// XXX validate value
 				y_mode = atoi(cmdparts[5]);
 				if (y_mode == MODE_TRAVEL) {
-					if (y_step_max != 0) {
-						Serial.println("learning travel");
-						y_step_current = 0;
-						y_step_max = 0;
-					} else {
-						Serial.print("learned max step: ");
-						Serial.println(y_step_current);
-						y_step_max = y_step_current;
+					// XXX y_startpoint_distance must not be 0
+					if (y_startpoint_distance == 0) {
+						y_mode = MODE_STOP;
 					}
 				}
 				continue;
@@ -215,11 +233,30 @@ ISR(TIMER1_COMPA_vect) {
 		return;
 	}
 	if (y_mode == MODE_TRAVEL) {
-		y_step_current++;
-		if (y_step_current > y_step_max && y_step_max != 0) {
-			y_step_current = 0;
-			digitalWrite(Y_DIR, !digitalRead(Y_DIR));
+		if (y_startpoint_distance == 0) {
+			y_travel_destination = ENDPOINT;
 		}
+		if (y_startpoint_distance == y_endpoint) {
+			y_travel_destination = STARTPOINT;
+		}
+		if (y_travel_destination == STARTPOINT) {
+			if (y_endpoint > 0) {
+				digitalWrite(Y_DIR, COUNTERCLOCKWISE);
+			} else {
+				digitalWrite(Y_DIR, CLOCKWISE);
+			}
+		} else {
+			if (y_endpoint > 0) {
+				digitalWrite(Y_DIR, CLOCKWISE);
+			} else {
+				digitalWrite(Y_DIR, COUNTERCLOCKWISE);
+			}
+		}
+	}
+	if (digitalRead(Y_DIR) == CLOCKWISE) {
+		y_startpoint_distance++;
+	} else {
+		y_startpoint_distance--;
 	}
 	PORTD ^= (1 << PD3);	// flip step pin
 }
