@@ -80,6 +80,7 @@ void printUsage() {
 void setup() {
 	Serial.begin(9600);
 	Serial.setTimeout(60000);
+	Serial.println("Starting Firmware");
 	while(!Serial.available());
 	pinMode(Y_DIR, OUTPUT);
 	pinMode(Y_STP, OUTPUT);
@@ -116,7 +117,7 @@ void loop() {
 	byte cmd_lenght_max = 35;
 	char cmd[cmd_lenght_max];
 	
-	unsigned int y_speed = 100;
+	unsigned int y_speed = 500;
 	setSpeed(y_speed);
 
 	while (true) {
@@ -126,6 +127,7 @@ void loop() {
 			continue;
 		}
 		if (cmd_lenght == 0) {
+			Serial.println("please enter command or type help");
 			continue;
 		}
 
