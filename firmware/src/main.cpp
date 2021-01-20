@@ -36,8 +36,8 @@ char cmd[CMD_MAXLENGHT];
 
 #define SHUTTER_RELEASE_PIN	COOLEN
 #define SMS_MODE_TO_STARTPOINT	0
-#define SMS_MODE_TAKE_PICTURE	1
-#define SMS_MODE_WAIT_OFFSET	2
+#define SMS_MODE_WAIT_OFFSET	1
+#define SMS_MODE_TAKE_PICTURE	2
 #define SMS_MODE_MOVE		3
 
 byte sms_mode;
@@ -69,24 +69,7 @@ void SMS() {
 				Serial.println("now traveling to startpoint");
 			}
 			if (y_travel_destination == ENDPOINT) {
-				sms_mode_first_run = true;
-				sms_mode = SMS_MODE_TAKE_PICTURE;
-			}
-			break;
-		case SMS_MODE_TAKE_PICTURE:
-			if (sms_mode_first_run) {
-				sms_mode_first_run = false;
 				y_mode = MODE_STOP;
-				digitalWrite(SHUTTER_RELEASE_PIN, LOW);
-				Serial.print("slider position: ");
-				Serial.println(y_startpoint_distance);
-				Serial.print("taking picture ");
-				Serial.println(sms_pictures_taken + 1);
-				prev_millis = millis();
-			}
-			if (millis() >= prev_millis + exposure_time_ms) {
-				digitalWrite(SHUTTER_RELEASE_PIN, HIGH);
-				sms_pictures_taken++;
 				sms_mode_first_run = true;
 				sms_mode = SMS_MODE_WAIT_OFFSET;
 			}
@@ -98,6 +81,21 @@ void SMS() {
 				prev_millis = millis();
 			}
 			if (millis() >= prev_millis + exposure_time_offset_ms) {
+				sms_mode_first_run = true;
+				sms_mode = SMS_MODE_TAKE_PICTURE;
+			}
+			break;
+		case SMS_MODE_TAKE_PICTURE:
+			if (sms_mode_first_run) {
+				sms_mode_first_run = false;
+				digitalWrite(SHUTTER_RELEASE_PIN, LOW);
+				Serial.print("taking picture ");
+				Serial.println(sms_pictures_taken + 1);
+				prev_millis = millis();
+			}
+			if (millis() >= prev_millis + exposure_time_ms) {
+				digitalWrite(SHUTTER_RELEASE_PIN, HIGH);
+				sms_pictures_taken++;
 				sms_mode_first_run = true;
 				sms_mode = SMS_MODE_MOVE;
 			}
@@ -115,8 +113,11 @@ void SMS() {
 				return;
 			}
 			if (y_startpoint_distance >= y_endpoint / (sms_pictures_amount - 1) * sms_pictures_taken) {
+				y_mode = MODE_STOP;
+				Serial.print("slider position: ");
+				Serial.println(y_startpoint_distance);
 				sms_mode_first_run = true;
-				sms_mode = SMS_MODE_TAKE_PICTURE;
+				sms_mode = SMS_MODE_WAIT_OFFSET;
 			}
 			break;
 		default:
