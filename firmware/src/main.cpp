@@ -280,13 +280,13 @@ void readCMD() {
 			return;
 		}
 		if (strcmp(cmdparts[4], "startpoint") == 0) {
-			y_startpoint_distance = 0;
 			y_mode = MODE_STOP;
+			y_startpoint_distance = 0;
 			return;
 		}
 		if (strcmp(cmdparts[4], "endpoint") == 0) {
-			y_endpoint = y_startpoint_distance;
 			y_mode = MODE_STOP;
+			y_endpoint = y_startpoint_distance;
 			return;
 		}
 		if (strcmp(cmdparts[4], "mode") == 0) {
