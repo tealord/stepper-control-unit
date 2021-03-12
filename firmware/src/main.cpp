@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SoftwareSerial.h>
 
 // TODO
 //
@@ -16,6 +17,8 @@
 #define X_STP	2	// PD2
 #define Y_STP	3	// PD3
 #define Z_STP	4	// PD4
+#define SPNEN  12
+#define SPNDIR 13
 
 #define	CLOCKWISE		0
 #define	COUNTERCLOCKWISE	1
@@ -25,6 +28,27 @@
 #define MODE_RUN		0
 #define MODE_STOP		1
 #define MODE_TRAVEL		2
+
+
+#define BT_SERIAL 1 // set to 1 to receive commands via BT serial on BT_SERIAL_(RX,TX)
+#define BT_SERIAL_RX 12
+#define BT_SERIAL_TX 13
+
+#define LOG_ENABLED 1
+
+#if LOG_ENABLED
+const static char LOG_TIME_SEP[] PROGMEM = "@L";
+const static char LOG_CMDKEYSTART[] PROGMEM = " [";
+const static char LOG_CMDKEYEND[] PROGMEM = "]: ";
+#define LOG_BEGIN(baudrate) Serial.begin(baudrate)
+#define LOG(key, msg) Serial.print(millis()); Serial.print(LOG_TIME_SEP); Serial.print(__LINE__); Serial.print(LOG_CMDKEYSTART); Serial.print(F(key)); Serial.print(LOG_CMDKEYEND); Serial.println(msg)
+#define LOGF(key, msg) LOG(key, F(msg))
+#else
+#define LOG_BEGIN(baudrate)
+#define LOG(key, msg)
+#define LOGF(key, msg)
+#endif
+
 
 byte y_mode = MODE_STOP;
 long y_startpoint_distance = 0;
@@ -54,6 +78,35 @@ unsigned long prev_millis;
 uint16_t tl_load = 0;
 uint16_t tl_comp = 250;
 
+#if BT_SERIAL
+SoftwareSerial btSerial(BT_SERIAL_RX, BT_SERIAL_TX);
+#endif
+
+void commBegin() {
+#if BT_SERIAL
+	btSerial.begin(9600);
+#else
+	Serial.begin(9600);
+#endif
+}
+
+
+bool commAvailable() {
+#if BT_SERIAL
+	return btSerial.available();
+#else
+	return Serial.available();
+#endif
+}
+
+char commRead() {
+#if BT_SERIAL
+	return btSerial.read();
+#else
+	return Serial.read();
+#endif
+}
+
 void setupSMS() {
 	pinMode(SHUTTER_RELEASE_PIN, OUTPUT);
 	digitalWrite(SHUTTER_RELEASE_PIN, HIGH);
@@ -66,7 +119,7 @@ void SMS() {
 				sms_mode_first_run = false;
 				y_mode = MODE_TRAVEL;
 				sms_pictures_taken = 0;
-				Serial.println("now traveling to startpoint");
+				LOGF("SMS", "now traveling to startpoint");
 			}
 			if (y_travel_destination == ENDPOINT) {
 				y_mode = MODE_STOP;
@@ -77,7 +130,7 @@ void SMS() {
 		case SMS_MODE_WAIT_OFFSET:
 			if (sms_mode_first_run) {
 				sms_mode_first_run = false;
-				Serial.println("waiting for offset");
+				LOGF("SMS", "waiting for offset");
 				prev_millis = millis();
 			}
 			if (millis() >= prev_millis + exposure_time_offset_ms) {
@@ -89,8 +142,8 @@ void SMS() {
 			if (sms_mode_first_run) {
 				sms_mode_first_run = false;
 				digitalWrite(SHUTTER_RELEASE_PIN, LOW);
-				Serial.print("taking picture ");
-				Serial.println(sms_pictures_taken + 1);
+				LOGF("SMS", "taking picture ");
+				LOG("SMS", sms_pictures_taken + 1);
 				prev_millis = millis();
 			}
 			if (millis() >= prev_millis + exposure_time_ms) {
@@ -104,25 +157,25 @@ void SMS() {
 			if (sms_mode_first_run) {
 				sms_mode_first_run = false;
 				y_mode = MODE_TRAVEL;
-				Serial.println("moving steps\n");
+				LOGF("SMS", "moving steps\n");
 			}
 			if (y_travel_destination == STARTPOINT) {
 				runSMS = false;
 				y_mode = MODE_STOP;
-				Serial.println("SMS finished");
+				LOGF("SMS", "finished");
 				return;
 			}
 			if (y_startpoint_distance >= y_endpoint / (sms_pictures_amount - 1) * sms_pictures_taken) {
 				y_mode = MODE_STOP;
-				Serial.print("slider position: ");
-				Serial.println(y_startpoint_distance);
+				LOGF("SMS", "slider position: ");
+				LOG("SMS", y_startpoint_distance);
 				sms_mode_first_run = true;
 				sms_mode = SMS_MODE_WAIT_OFFSET;
 			}
 			break;
 		default:
 			// should never reach this
-			Serial.println("never reach this!");
+			LOGF("SMS", "never reach this!");
 			break;
 	}
 }
@@ -135,51 +188,51 @@ void setSpeed(unsigned int microseconds) {
 }
 
 void printUsage() {
-	Serial.println("Please structure your command like this:");
-	Serial.println();
-	Serial.println("sid=<0-2>;cmd=<set|get>;[speed,direction,startpoint,endpoint,mode,exposure_time_ms,exposure_time_offset_ms,sms_pictures_amount,runSMS]");
-	Serial.println();
-	Serial.println();
-	Serial.println("Where:");
-	Serial.println();
-	Serial.println("<sid> is you stepper id. Not implemented yet, always use 0");
-	Serial.println();
-	Serial.println("speed");
-	Serial.println("int as delay in microseconds");
-	Serial.println();
-	Serial.println("direction");
-	Serial.println("0 : clockwise");
-	Serial.println("1 : counterclockwise");
-	Serial.println();
-	Serial.println("mode");
-	Serial.println("0 : run infinitely");
-	Serial.println("1 : stop");
-	Serial.println("2 : travel mode");
-	Serial.println();
-	Serial.println();
-	Serial.println("Examples:");
-	Serial.println();
-	Serial.println("sid=0;cmd=get;speed;");
-	Serial.println("sid=0;cmd=set;speed=50;");
-	Serial.println();
-	Serial.println("sid=0;cmd=get;direction;");
-	Serial.println("sid=0;cmd=set;direction=1;");
-	Serial.println();
-	Serial.println("sid=0;cmd=get;mode;");
-	Serial.println("sid=0;cmd=set;mode=2;");
+	LOGF("USE", "Please structure your command like this:");
+	LOG("USE", );
+	LOGF("USE", "sid=<0-2>;cmd=<set|get>;[speed,direction,startpoint,endpoint,mode,exposure_time_ms,exposure_time_offset_ms,sms_pictures_amount,runSMS]");
+	LOG("USE", );
+	LOG("USE", );
+	LOGF("USE", "Where:");
+	LOG("USE", );
+	LOGF("USE", "<sid> is you stepper id. Not implemented yet, always use 0");
+	LOG("USE", );
+	LOGF("USE", "speed");
+	LOGF("USE", "int as delay in microseconds");
+	LOG("USE", );
+	LOGF("USE", "direction");
+	LOGF("USE", "0 : clockwise");
+	LOGF("USE", "1 : counterclockwise");
+	LOG("USE", );
+	LOGF("USE", "mode");
+	LOGF("USE", "0 : run infinitely");
+	LOGF("USE", "1 : stop");
+	LOGF("USE", "2 : travel mode");
+	LOG("USE", );
+	LOG("USE", );
+	LOGF("USE", "Examples:");
+	LOG("USE", );
+	LOGF("USE", "sid=0;cmd=get;speed;");
+	LOGF("USE", "sid=0;cmd=set;speed=50;");
+	LOG("USE", );
+	LOGF("USE", "sid=0;cmd=get;direction;");
+	LOGF("USE", "sid=0;cmd=set;direction=1;");
+	LOG("USE", );
+	LOGF("USE", "sid=0;cmd=get;mode;");
+	LOGF("USE", "sid=0;cmd=set;mode=2;");
 }
 
 void readCMD() {
-	if(Serial.available()){
-		char c = Serial.read();
+	if(commAvailable()) {
+		char c = commRead();
 		if (cmd_char_cnt >= CMD_MAXLENGHT) {
-			Serial.println("error: your command is to long");
+			LOGF("RCMD ERROR", "your command is to long");
 			cmd_char_cnt = 0;
 			return;
 		}
 		if (c == '\r') {
 			if (cmd_char_cnt == 0) {
-				Serial.println("please enter command or type help");
+				LOGF("RCMD", "please enter command or type help");
 				return;
 			}
 			cmd[cmd_char_cnt] = '\0';
@@ -192,6 +245,21 @@ void readCMD() {
 	} else {
 		return;
 	}
+
+#if BT_SERIAL
+	char *acmd = cmd;
+	if (strncmp(acmd, "OK+LOST", 7) == 0) {
+		LOGF("RCMD", "Stripping OK+LOST from command");
+		acmd += 7;
+	}
+	if (strncmp(acmd, "OK+CONN", 7) == 0) {
+		LOGF("RCMD", "Stripping OK+CONN from command");
+		acmd += 7;
+	}
+	strcpy(cmd, acmd);
+#endif
+
+	LOG("RCMD HANDLE", cmd);
 
 	// split the command parts
 	char *cmdparts[7];
@@ -206,14 +274,14 @@ void readCMD() {
 
 	// get stepper id
 	if (strcmp(cmdparts[0], "sid") != 0) {
-		Serial.println("error: no sid found");
+		LOGF("RCMD ERROR", "no sid found");
 		printUsage();
 		return;
 	}
 
 	// get command
 	if (strcmp(cmdparts[2], "cmd") != 0) {
-		Serial.println("error: no cmd found");
+		LOGF("RCMD ERROR", "no cmd found");
 		printUsage();
 		return;
 	}
@@ -221,44 +289,42 @@ void readCMD() {
 	// run command: get
 	if (strcmp(cmdparts[3], "get") == 0) {
 		if (strcmp(cmdparts[4], "speed") == 0) {
-			Serial.println(y_speed);
+			LOG("RCMD", y_speed);
 			return;
 		}
 		if (strcmp(cmdparts[4], "direction") == 0) {
-			Serial.println(digitalRead(Y_DIR));
+			LOG("RCMD", digitalRead(Y_DIR));
 			return;
 		}
 		if (strcmp(cmdparts[4], "startpoint") == 0) {
-			Serial.println(y_startpoint_distance);
+			LOG("RCMD", y_startpoint_distance);
 			return;
 		}
 		if (strcmp(cmdparts[4], "endpoint") == 0) {
-			Serial.println(y_endpoint);
+			LOG("RCMD", y_endpoint);
 			return;
 		}
 		if (strcmp(cmdparts[4], "mode") == 0) {
-			Serial.println(y_mode);
+			LOG("RCMD", y_mode);
 			return;
 		}
 		if (strcmp(cmdparts[4], "exposure_time_ms") == 0) {
-			Serial.println(exposure_time_ms);
+			LOG("RCMD", exposure_time_ms);
 			return;
 		}
 		if (strcmp(cmdparts[4], "exposure_time_offset_ms") == 0) {
-			Serial.println(exposure_time_offset_ms);
+			LOG("RCMD", exposure_time_offset_ms);
 			return;
 		}
 		if (strcmp(cmdparts[4], "sms_pictures_amount") == 0) {
-			Serial.println(sms_pictures_amount);
+			LOG("RCMD", sms_pictures_amount);
 			return;
 		}
 		if (strcmp(cmdparts[4], "runSMS") == 0) {
-			Serial.println(runSMS);
+			LOG("RCMD", runSMS);
 			return;
 		}
-		Serial.print("error: '");
-		Serial.print(cmdparts[4]);
-		Serial.println("' is an unkown variable");
+		LOG("RCMDERR UNKNOWNVAR", cmdparts[4]);
 		return;
 	}
 	// run command: set
@@ -299,7 +365,7 @@ void readCMD() {
 				}
 			}
 			if (runSMS) {
-				Serial.println("aborting SMS mode");
+				LOGF("SMS", "aborting SMS mode");
 				runSMS = false;
 			}
 			return;
@@ -324,7 +390,7 @@ void readCMD() {
 			runSMS = atoi(cmdparts[5]);
 			if (runSMS) {
 				if (y_endpoint == 0) {
-					Serial.println("error: travel distance not set");
+					LOGF("RCMD ERROR", "travel distance not set");
 					runSMS = false;
 					return;
 				}
@@ -333,18 +399,21 @@ void readCMD() {
 				return;
 			}
 		}
-		Serial.print("error: '");
-		Serial.print(cmdparts[4]);
-		Serial.println("' is an unkown variable");
+		LOG("RCMDERR UNKNOWNVAR", cmdparts[4]);
 		return;
 	}
 }
 
 void setup() {
-	Serial.begin(9600);
+	LOG_BEGIN(9600);
+	commBegin();
 	//Serial.setTimeout(60000);
-	Serial.println("Starting Firmware");
-	while(!Serial.available());
+	LOGF("SETUP", "Starting Firmware");
+#if BT_SERIAL
+	LOGF("USE_CMD", "BLE");
+#else
+	LOGF("USE_CMD", "SERIAL");
+#endif
 	pinMode(Y_DIR, OUTPUT);
 	pinMode(Y_STP, OUTPUT);
 	pinMode(EN, OUTPUT);
