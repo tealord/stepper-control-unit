@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SoftwareSerial.h>
 
 // TODO
 //
@@ -16,6 +17,8 @@
 #define X_STP	2	// PD2
 #define Y_STP	3	// PD3
 #define Z_STP	4	// PD4
+#define SPNEN  12
+#define SPNDIR 13
 
 #define	CLOCKWISE		0
 #define	COUNTERCLOCKWISE	1
@@ -25,6 +28,12 @@
 #define MODE_RUN		0
 #define MODE_STOP		1
 #define MODE_TRAVEL		2
+
+
+#define BT_SERIAL 1 // set to 1 to receive commands via BT serial on BT_SERIAL_(RX,TX)
+#define BT_SERIAL_RX 12
+#define BT_SERIAL_TX 13
+
 
 byte y_mode = MODE_STOP;
 long y_startpoint_distance = 0;
@@ -53,6 +62,35 @@ unsigned long prev_millis;
 // XXX do we need those?
 uint16_t tl_load = 0;
 uint16_t tl_comp = 250;
+
+#if BT_SERIAL
+SoftwareSerial btSerial(BT_SERIAL_RX, BT_SERIAL_TX);
+#endif
+
+void commBegin() {
+#if BT_SERIAL
+	btSerial.begin(9600);
+#else
+	Serial.begin(9600);
+#endif
+}
+
+
+bool commAvailable() {
+#if BT_SERIAL
+	return btSerial.available();
+#else
+	return Serial.available();
+#endif
+}
+
+char commRead() {
+#if BT_SERIAL
+	return btSerial.read();
+#else
+	return Serial.read();
+#endif
+}
 
 void setupSMS() {
 	pinMode(SHUTTER_RELEASE_PIN, OUTPUT);
@@ -170,8 +208,8 @@ void printUsage() {
 }
 
 void readCMD() {
-	if(Serial.available()){
-		char c = Serial.read();
+	if(commAvailable()) {
+		char c = commRead();
 		if (cmd_char_cnt >= CMD_MAXLENGHT) {
 			Serial.println("error: your command is to long");
 			cmd_char_cnt = 0;
@@ -192,6 +230,22 @@ void readCMD() {
 	} else {
 		return;
 	}
+
+#if BT_SERIAL
+	char *acmd = cmd;
+	if (strncmp(acmd, "OK+LOST", 7) == 0) {
+		Serial.println("Stripping OK+LOST from command");
+		acmd += 7;
+	}
+	if (strncmp(acmd, "OK+CONN", 7) == 0) {
+		Serial.println("Stripping OK+CONN from command");
+		acmd += 7;
+	}
+	strcpy(cmd, acmd);
+#endif
+
+	Serial.print("Handling cmd: ");
+	Serial.println(cmd);
 
 	// split the command parts
 	char *cmdparts[7];
@@ -342,9 +396,16 @@ void readCMD() {
 
 void setup() {
 	Serial.begin(9600);
+	commBegin();
 	//Serial.setTimeout(60000);
 	Serial.println("Starting Firmware");
-	while(!Serial.available());
+	Serial.print("Will use ");
+#if BT_SERIAL
+	Serial.print("BLE");
+#else
+	Serial.print("SERIAL");
+#endif
+	Serial.println(" for commands");
 	pinMode(Y_DIR, OUTPUT);
 	pinMode(Y_STP, OUTPUT);
 	pinMode(EN, OUTPUT);
