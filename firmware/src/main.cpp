@@ -24,7 +24,7 @@
 #define	COUNTERCLOCKWISE	1
 #define STARTPOINT		0
 #define ENDPOINT		1
-#define CMD_MAXLENGHT		50
+#define CMD_MAXLENGHT		128
 #define MODE_RUN		0
 #define MODE_STOP		1
 #define MODE_TRAVEL		2
@@ -37,9 +37,9 @@
 #define LOG_ENABLED 1
 
 #if LOG_ENABLED
-const static char LOG_TIME_SEP[] PROGMEM = "@L";
-const static char LOG_CMDKEYSTART[] PROGMEM = " [";
-const static char LOG_CMDKEYEND[] PROGMEM = "]: ";
+const static char LOG_TIME_SEP[] = "@L";
+const static char LOG_CMDKEYSTART[] = " [";
+const static char LOG_CMDKEYEND[] = "]: ";
 #define LOG_BEGIN(baudrate) Serial.begin(baudrate)
 #define LOG(key, msg) Serial.print(millis()); Serial.print(LOG_TIME_SEP); Serial.print(__LINE__); Serial.print(LOG_CMDKEYSTART); Serial.print(F(key)); Serial.print(LOG_CMDKEYEND); Serial.println(msg)
 #define LOGF(key, msg) LOG(key, F(msg))
@@ -240,24 +240,18 @@ void readCMD() {
 		} else {
 			cmd[cmd_char_cnt] = c;
 			cmd_char_cnt++;
-				return;
+#if BT_SERIAL
+		if (cmd_char_cnt >= 7 && (strncmp(cmd, "OK+LOST", 7) == 0 || strncmp(cmd, "OK+CONN", 7) == 0)) {
+			LOGF("RCMD", "Stripping OK+(LOST|CONN) from command");
+			cmd[0] = '\0';
+			cmd_char_cnt = 0;
+		}
+#endif
+			return;
 		}
 	} else {
 		return;
 	}
-
-#if BT_SERIAL
-	char *acmd = cmd;
-	if (strncmp(acmd, "OK+LOST", 7) == 0) {
-		LOGF("RCMD", "Stripping OK+LOST from command");
-		acmd += 7;
-	}
-	if (strncmp(acmd, "OK+CONN", 7) == 0) {
-		LOGF("RCMD", "Stripping OK+CONN from command");
-		acmd += 7;
-	}
-	strcpy(cmd, acmd);
-#endif
 
 	LOG("RCMD HANDLE", cmd);
 
