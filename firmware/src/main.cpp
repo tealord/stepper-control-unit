@@ -37,9 +37,9 @@
 #define LOG_ENABLED 1
 
 #if LOG_ENABLED
-const static char LOG_TIME_SEP[] PROGMEM = "@L";
-const static char LOG_CMDKEYSTART[] PROGMEM = " [";
-const static char LOG_CMDKEYEND[] PROGMEM = "]: ";
+const static char LOG_TIME_SEP[] = "@L";
+const static char LOG_CMDKEYSTART[] = " [";
+const static char LOG_CMDKEYEND[] = "]: ";
 #define LOG_BEGIN(baudrate) Serial.begin(baudrate)
 #define LOG(key, msg) Serial.print(millis()); Serial.print(LOG_TIME_SEP); Serial.print(__LINE__); Serial.print(LOG_CMDKEYSTART); Serial.print(F(key)); Serial.print(LOG_CMDKEYEND); Serial.println(msg)
 #define LOGF(key, msg) LOG(key, F(msg))
