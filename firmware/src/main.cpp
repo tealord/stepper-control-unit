@@ -24,7 +24,7 @@
 #define	COUNTERCLOCKWISE	1
 #define STARTPOINT		0
 #define ENDPOINT		1
-#define CMD_MAXLENGHT		50
+#define CMD_MAXLENGHT		128
 #define MODE_RUN		0
 #define MODE_STOP		1
 #define MODE_TRAVEL		2
@@ -240,24 +240,18 @@ void readCMD() {
 		} else {
 			cmd[cmd_char_cnt] = c;
 			cmd_char_cnt++;
-				return;
+#if BT_SERIAL
+		if (cmd_char_cnt >= 7 && (strncmp(cmd, "OK+LOST", 7) == 0 || strncmp(cmd, "OK+CONN", 7) == 0)) {
+			LOGF("RCMD", "Stripping OK+(LOST|CONN) from command");
+			cmd[0] = '\0';
+			cmd_char_cnt = 0;
+		}
+#endif
+			return;
 		}
 	} else {
 		return;
 	}
-
-#if BT_SERIAL
-	char *acmd = cmd;
-	if (strncmp(acmd, "OK+LOST", 7) == 0) {
-		LOGF("RCMD", "Stripping OK+LOST from command");
-		acmd += 7;
-	}
-	if (strncmp(acmd, "OK+CONN", 7) == 0) {
-		LOGF("RCMD", "Stripping OK+CONN from command");
-		acmd += 7;
-	}
-	strcpy(cmd, acmd);
-#endif
 
 	LOG("RCMD HANDLE", cmd);
 
