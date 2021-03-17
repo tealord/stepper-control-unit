@@ -41,6 +41,7 @@ const static char LOG_TIME_SEP[] = "@L";
 const static char LOG_CMDKEYSTART[] = " [";
 const static char LOG_CMDKEYEND[] = "]: ";
 #define LOG_BEGIN(baudrate) Serial.begin(baudrate)
+#define LOGA(key, msg, arg) Serial.print(millis()); Serial.print(LOG_TIME_SEP); Serial.print(__LINE__); Serial.print(LOG_CMDKEYSTART); Serial.print(F(key)); Serial.print(LOG_CMDKEYEND); Serial.print(msg); Serial.println(arg);
 #define LOG(key, msg) Serial.print(millis()); Serial.print(LOG_TIME_SEP); Serial.print(__LINE__); Serial.print(LOG_CMDKEYSTART); Serial.print(F(key)); Serial.print(LOG_CMDKEYEND); Serial.println(msg)
 #define LOGF(key, msg) LOG(key, F(msg))
 #else
@@ -157,7 +158,7 @@ void SMS() {
 			if (sms_mode_first_run) {
 				sms_mode_first_run = false;
 				y_mode = MODE_TRAVEL;
-				LOGF("SMS", "moving steps\n");
+				LOGF("SMS", "moving steps");
 			}
 			if (y_travel_destination == STARTPOINT) {
 				runSMS = false;
@@ -165,10 +166,14 @@ void SMS() {
 				LOGF("SMS", "finished");
 				return;
 			}
-			if (y_startpoint_distance >= y_endpoint / (sms_pictures_amount - 1) * sms_pictures_taken) {
+			int limit = y_endpoint / (sms_pictures_amount - 1) * sms_pictures_taken;
+			if (y_startpoint_distance >= limit) {
 				y_mode = MODE_STOP;
-				LOGF("SMS", "slider position: ");
-				LOG("SMS", y_startpoint_distance);
+				LOGA("SMS", "slider position: ", y_startpoint_distance);
+				LOGA("SMS", "y_endpoint: ", y_endpoint);
+				LOGA("SMS", "sms_picture_amount: ", sms_pictures_amount);
+				LOGA("SMS", "sms_pictures_taken: ", sms_pictures_taken);
+				LOGA("SMS", "limit: ", limit);
 				sms_mode_first_run = true;
 				sms_mode = SMS_MODE_WAIT_OFFSET;
 			}
@@ -342,11 +347,13 @@ void readCMD() {
 		if (strcmp(cmdparts[4], "startpoint") == 0) {
 			y_mode = MODE_STOP;
 			y_startpoint_distance = 0;
+			LOGF("RCMD", "set startpoint");
 			return;
 		}
 		if (strcmp(cmdparts[4], "endpoint") == 0) {
 			y_mode = MODE_STOP;
 			y_endpoint = y_startpoint_distance;
+			LOGA("RCMD", "set endpoint ", y_endpoint);
 			return;
 		}
 		if (strcmp(cmdparts[4], "mode") == 0) {
