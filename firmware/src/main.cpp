@@ -40,9 +40,11 @@
 const static char LOG_TIME_SEP[] = "@L";
 const static char LOG_CMDKEYSTART[] = " [";
 const static char LOG_CMDKEYEND[] = "]: ";
-#define LOG_BEGIN(baudrate) Serial.begin(baudrate)
-#define LOGA(key, msg, arg) Serial.print(millis()); Serial.print(LOG_TIME_SEP); Serial.print(__LINE__); Serial.print(LOG_CMDKEYSTART); Serial.print(F(key)); Serial.print(LOG_CMDKEYEND); Serial.print(msg); Serial.println(arg);
-#define LOG(key, msg) Serial.print(millis()); Serial.print(LOG_TIME_SEP); Serial.print(__LINE__); Serial.print(LOG_CMDKEYSTART); Serial.print(F(key)); Serial.print(LOG_CMDKEYEND); Serial.println(msg)
+#define LOG_SERIAL btSerial
+#define LOG_BAUDRATE 9600
+#define LOG_BEGIN(baudrate) LOG_SERIAL.begin(LOG_BAUDRATE)
+#define LOGA(key, msg, arg) LOG_SERIAL.print(millis()); LOG_SERIAL.print(LOG_TIME_SEP); LOG_SERIAL.print(__LINE__); LOG_SERIAL.print(LOG_CMDKEYSTART); LOG_SERIAL.print(F(key)); LOG_SERIAL.print(LOG_CMDKEYEND); LOG_SERIAL.print(msg); LOG_SERIAL.println(arg);
+#define LOG(key, msg) LOG_SERIAL.print(millis()); LOG_SERIAL.print(LOG_TIME_SEP); LOG_SERIAL.print(__LINE__); LOG_SERIAL.print(LOG_CMDKEYSTART); LOG_SERIAL.print(F(key)); LOG_SERIAL.print(LOG_CMDKEYEND); LOG_SERIAL.println(msg)
 #define LOGF(key, msg) LOG(key, F(msg))
 #else
 #define LOG_BEGIN(baudrate)
@@ -154,7 +156,7 @@ void SMS() {
 				sms_mode = SMS_MODE_MOVE;
 			}
 			break;
-		case SMS_MODE_MOVE:
+		case SMS_MODE_MOVE: {
 			if (sms_mode_first_run) {
 				sms_mode_first_run = false;
 				y_mode = MODE_TRAVEL;
@@ -166,18 +168,25 @@ void SMS() {
 				LOGF("SMS", "finished");
 				return;
 			}
-			int limit = y_endpoint / (sms_pictures_amount - 1) * sms_pictures_taken;
-			if (y_startpoint_distance >= limit) {
+			long next_picture_destination = y_endpoint / (sms_pictures_amount - 1) * sms_pictures_taken;
+			bool is_right = digitalRead(Y_DIR) == CLOCKWISE;
+			bool is_left = digitalRead(Y_DIR) == COUNTERCLOCKWISE;
+			bool is_right_and_after = y_startpoint_distance >= next_picture_destination && is_right;
+			bool is_left_and_before = y_startpoint_distance <= next_picture_destination && is_left;
+			if (is_right_and_after || is_left_and_before) {
 				y_mode = MODE_STOP;
 				LOGA("SMS", "slider position: ", y_startpoint_distance);
 				LOGA("SMS", "y_endpoint: ", y_endpoint);
 				LOGA("SMS", "sms_picture_amount: ", sms_pictures_amount);
 				LOGA("SMS", "sms_pictures_taken: ", sms_pictures_taken);
-				LOGA("SMS", "limit: ", limit);
+				LOGA("SMS", "next_picture_destination: ", next_picture_destination);
+				long offset = labs(y_startpoint_distance - next_picture_destination);
+				LOGA("SMS", "offset: ", offset);
 				sms_mode_first_run = true;
 				sms_mode = SMS_MODE_WAIT_OFFSET;
 			}
 			break;
+		}
 		default:
 			// should never reach this
 			LOGF("SMS", "never reach this!");
