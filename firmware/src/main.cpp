@@ -34,23 +34,36 @@
 #define BT_SERIAL_RX 12
 #define BT_SERIAL_TX 13
 
-#define LOG_ENABLED 1
+#define LOG_ENABLED 0
 
 #if LOG_ENABLED
 const static char LOG_TIME_SEP[] = "@L";
 const static char LOG_CMDKEYSTART[] = " [";
 const static char LOG_CMDKEYEND[] = "]: ";
-#define LOG_SERIAL btSerial
 #define LOG_BAUDRATE 9600
 #define LOG_BEGIN(baudrate) LOG_SERIAL.begin(LOG_BAUDRATE)
-#define LOGA(key, msg, arg) LOG_SERIAL.print(millis()); LOG_SERIAL.print(LOG_TIME_SEP); LOG_SERIAL.print(__LINE__); LOG_SERIAL.print(LOG_CMDKEYSTART); LOG_SERIAL.print(F(key)); LOG_SERIAL.print(LOG_CMDKEYEND); LOG_SERIAL.print(msg); LOG_SERIAL.println(arg);
+#define LOGA(key, msg, arg) LOG_SERIAL.print("LOG "); LOG_SERIAL.print(millis()); LOG_SERIAL.print(LOG_TIME_SEP); LOG_SERIAL.print(__LINE__); LOG_SERIAL.print(LOG_CMDKEYSTART); LOG_SERIAL.print(F(key)); LOG_SERIAL.print(LOG_CMDKEYEND); LOG_SERIAL.print(msg); LOG_SERIAL.println(arg);
 #define LOG(key, msg) LOG_SERIAL.print(millis()); LOG_SERIAL.print(LOG_TIME_SEP); LOG_SERIAL.print(__LINE__); LOG_SERIAL.print(LOG_CMDKEYSTART); LOG_SERIAL.print(F(key)); LOG_SERIAL.print(LOG_CMDKEYEND); LOG_SERIAL.println(msg)
 #define LOGF(key, msg) LOG(key, F(msg))
 #else
 #define LOG_BEGIN(baudrate)
 #define LOG(key, msg)
 #define LOGF(key, msg)
+#define LOGA(key, msg, arg)
 #endif
+
+#if BT_SERIAL
+#define LOG_SERIAL btSerial
+#else
+#define LOG_SERIAL Serial
+#endif
+
+#if BT_SERIAL
+#define SERIAL_SEND(key, value) btSerial.print(key); btSerial.print("="); btSerial.println(value);
+#else
+#define SERIAL_SEND(key, value) Serial.print(key); Serial.print("="); Serial.println(value);
+#endif
+
 
 
 byte y_mode = MODE_STOP;
@@ -298,38 +311,47 @@ void readCMD() {
 	if (strcmp(cmdparts[3], "get") == 0) {
 		if (strcmp(cmdparts[4], "speed") == 0) {
 			LOG("RCMD", y_speed);
+			SERIAL_SEND("speed", y_speed);
 			return;
 		}
 		if (strcmp(cmdparts[4], "direction") == 0) {
 			LOG("RCMD", digitalRead(Y_DIR));
+			SERIAL_SEND("direction", digitalRead(Y_DIR));
 			return;
 		}
 		if (strcmp(cmdparts[4], "startpoint") == 0) {
 			LOG("RCMD", y_startpoint_distance);
+			SERIAL_SEND("startpoint", y_startpoint_distance);
 			return;
 		}
 		if (strcmp(cmdparts[4], "endpoint") == 0) {
 			LOG("RCMD", y_endpoint);
+			SERIAL_SEND("endpoint", y_endpoint);
 			return;
 		}
 		if (strcmp(cmdparts[4], "mode") == 0) {
 			LOG("RCMD", y_mode);
+			SERIAL_SEND("mode", y_mode);
 			return;
 		}
 		if (strcmp(cmdparts[4], "exposure_time_ms") == 0) {
 			LOG("RCMD", exposure_time_ms);
+			SERIAL_SEND("exposure_time_ms", exposure_time_ms);
 			return;
 		}
 		if (strcmp(cmdparts[4], "exposure_time_offset_ms") == 0) {
 			LOG("RCMD", exposure_time_offset_ms);
+			SERIAL_SEND("exposure_time_offset_ms", exposure_time_offset_ms);
 			return;
 		}
 		if (strcmp(cmdparts[4], "sms_pictures_amount") == 0) {
 			LOG("RCMD", sms_pictures_amount);
+			SERIAL_SEND("sms_pictures_amount", sms_pictures_amount);
 			return;
 		}
 		if (strcmp(cmdparts[4], "runSMS") == 0) {
 			LOG("RCMD", runSMS);
+			SERIAL_SEND("runSMS", runSMS);
 			return;
 		}
 		LOG("RCMDERR UNKNOWNVAR", cmdparts[4]);
