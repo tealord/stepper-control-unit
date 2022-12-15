@@ -76,9 +76,10 @@ char cmd[CMD_MAXLENGHT];
 
 #define SHUTTER_RELEASE_PIN	COOLEN
 #define SMS_MODE_TO_STARTPOINT	0
-#define SMS_MODE_WAIT_OFFSET	1
-#define SMS_MODE_TAKE_PICTURE	2
-#define SMS_MODE_MOVE		3
+#define SMS_MODE_WAIT_OFFSET_BEFORE	1
+#define SMS_MODE_WAIT_OFFSET_AFTER	2
+#define SMS_MODE_TAKE_PICTURE	3
+#define SMS_MODE_MOVE		4
 
 byte sms_mode;
 bool sms_mode_first_run;
@@ -140,18 +141,23 @@ void SMS() {
 			if (y_travel_destination == ENDPOINT) {
 				y_mode = MODE_STOP;
 				sms_mode_first_run = true;
-				sms_mode = SMS_MODE_WAIT_OFFSET;
+				sms_mode = SMS_MODE_WAIT_OFFSET_BEFORE;
 			}
 			break;
-		case SMS_MODE_WAIT_OFFSET:
+		case SMS_MODE_WAIT_OFFSET_BEFORE:
+		case SMS_MODE_WAIT_OFFSET_AFTER:
 			if (sms_mode_first_run) {
 				sms_mode_first_run = false;
 				LOGF("SMS", "waiting for offset");
 				prev_millis = millis();
 			}
-			if (millis() >= prev_millis + exposure_time_offset_ms) {
+			if (millis() >= prev_millis + exposure_time_offset_ms / 2) {
 				sms_mode_first_run = true;
-				sms_mode = SMS_MODE_TAKE_PICTURE;
+				if (sms_mode == SMS_MODE_WAIT_OFFSET_BEFORE) {
+					sms_mode = SMS_MODE_TAKE_PICTURE;
+				} else {
+					sms_mode = SMS_MODE_MOVE;
+				}
 			}
 			break;
 		case SMS_MODE_TAKE_PICTURE:
@@ -166,7 +172,7 @@ void SMS() {
 				digitalWrite(SHUTTER_RELEASE_PIN, HIGH);
 				sms_pictures_taken++;
 				sms_mode_first_run = true;
-				sms_mode = SMS_MODE_MOVE;
+				sms_mode = SMS_MODE_WAIT_OFFSET_AFTER;
 			}
 			break;
 		case SMS_MODE_MOVE: {
@@ -196,7 +202,7 @@ void SMS() {
 				long offset = labs(y_startpoint_distance - next_picture_destination);
 				LOGA("SMS", "offset: ", offset);
 				sms_mode_first_run = true;
-				sms_mode = SMS_MODE_WAIT_OFFSET;
+				sms_mode = SMS_MODE_WAIT_OFFSET_BEFORE;
 			}
 			break;
 		}
